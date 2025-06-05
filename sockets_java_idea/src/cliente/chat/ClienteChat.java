@@ -16,33 +16,53 @@ public class ClienteChat extends JFrame {
     private DatagramSocket socketUDP;
     private DataOutputStream outTCP;
     
-    private String servidorIP;
-    private int puertoTCP, puertoUDP;
     
-    public ClienteChat(String ipServidor) {
-        this.ipServidor = ipServidor; // Usar la IP proporcionada
-        configurarGUI();
-        iniciarEscuchaUDP(); // Añadir este método para recibir mensajes
+    private String servidorIP;
+    private final int puertoTCP;
+    private final int puertoUDP;
+    
+    // Constructor modificado
+    public ClienteChat(String ipServidor, int puertoTCP, int puertoUDP) {
+        this.servidorIP = ipServidor;
+        this.puertoTCP = puertoTCP;
+        this.puertoUDP = puertoUDP;
+        
+        initComponents(); // Cambiado de configurarGUI() a initComponents()
+        conectarServidor();
+        iniciarEscuchaUDP();
     }
+
     private void iniciarEscuchaUDP() {
-    new Thread(() -> {
-        try {
-            DatagramSocket socketUDP = new DatagramSocket(puertoUDP + 1); // Usar puerto diferente
-            byte[] buffer = new byte[1024];
-            
-            while (true) {
-                DatagramPacket paquete = new DatagramPacket(buffer, buffer.length);
-                socketUDP.receive(paquete);
+        new Thread(() -> {
+            try {
+                DatagramSocket socketEscucha = new DatagramSocket(puertoUDP + 1);
+                byte[] buffer = new byte[1024];
                 
-                // Procesar mensaje (similar al servidor UDP)
-                String mensaje = new String(paquete.getData(), 0, paquete.getLength(), "UTF-8");
-                agregarMensaje("Remoto: " + mensaje);
+                while (true) {
+                    DatagramPacket paquete = new DatagramPacket(buffer, buffer.length);
+                    socketEscucha.receive(paquete);
+                    
+                    // Procesar mensaje
+                    ByteArrayInputStream bais = new ByteArrayInputStream(paquete.getData());
+                    DataInputStream dis = new DataInputStream(bais);
+                    
+                    long checksumRecibido = dis.readLong();
+                    String mensaje = dis.readUTF();
+                    
+                    CRC32 crc = new CRC32();
+                    crc.update(mensaje.getBytes("UTF-8"));
+                    
+                    if(crc.getValue() == checksumRecibido) {
+                        agregarMensaje("Remoto: " + mensaje);
+                    } else {
+                        agregarMensaje("[ERROR] Mensaje corrupto recibido");
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }).start();
-}
+        }).start();
+    }
     
     private void initComponents() {
         setTitle("Cliente de Chat");
