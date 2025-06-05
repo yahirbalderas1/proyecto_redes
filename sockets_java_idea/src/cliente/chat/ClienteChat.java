@@ -19,14 +19,30 @@ public class ClienteChat extends JFrame {
     private String servidorIP;
     private int puertoTCP, puertoUDP;
     
-    public ClienteChat(String ip, int puertoT, int puertoU) {
-        servidorIP = ip;
-        puertoTCP = puertoT;
-        puertoUDP = puertoU;
-        
-        initComponents();
-        conectarServidor();
+    public ClienteChat(String ipServidor) {
+        this.ipServidor = ipServidor; // Usar la IP proporcionada
+        configurarGUI();
+        iniciarEscuchaUDP(); // Añadir este método para recibir mensajes
     }
+    private void iniciarEscuchaUDP() {
+    new Thread(() -> {
+        try {
+            DatagramSocket socketUDP = new DatagramSocket(puertoUDP + 1); // Usar puerto diferente
+            byte[] buffer = new byte[1024];
+            
+            while (true) {
+                DatagramPacket paquete = new DatagramPacket(buffer, buffer.length);
+                socketUDP.receive(paquete);
+                
+                // Procesar mensaje (similar al servidor UDP)
+                String mensaje = new String(paquete.getData(), 0, paquete.getLength(), "UTF-8");
+                agregarMensaje("Remoto: " + mensaje);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }).start();
+}
     
     private void initComponents() {
         setTitle("Cliente de Chat");
