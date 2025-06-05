@@ -39,21 +39,22 @@ private Mensaje procesarPaquete(DatagramPacket paquete) throws Exception {
     ByteArrayInputStream bais = new ByteArrayInputStream(datos);
     DataInputStream dis = new DataInputStream(bais);
     
+    // 1. Leer checksum (long = 8 bytes)
     long checksumRecibido = dis.readLong();
-    String mensajeStr = dis.readUTF(); // Usar readUTF para consistencia
     
+    // 2. Leer el mensaje (el resto de los bytes)
+    byte[] mensajeBytes = new byte[paquete.getLength() - 8];
+    dis.readFully(mensajeBytes);
+    String mensajeStr = new String(mensajeBytes, "UTF-8");
+    
+    // Verificación CRC
     CRC32 crc = new CRC32();
-    crc.update(mensajeStr.getBytes("UTF-8"));
-    long checksumCalculado = crc.getValue();
+    crc.update(mensajeBytes);
     
     Mensaje mensaje = new Mensaje();
-    mensaje.setMensaje(mensajeStr);
+    mensaje.setMensaje(crc.getValue() == checksumRecibido ? mensajeStr : "[ERROR] " + mensajeStr);
     mensaje.setAddressCliente(paquete.getAddress());
     mensaje.setPuertoCliente(paquete.getPort());
-    
-    if(checksumRecibido != checksumCalculado) {
-        mensaje.setMensaje("[ERROR EN DATOS] " + mensajeStr);
-    }
     
     return mensaje;
 }
